@@ -9,9 +9,9 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-@Service 
-@RequiredArgsConstructor 
-@Slf4j 
+@Service
+@RequiredArgsConstructor
+@Slf4j
 public class InventoryService {
     private final StringRedisTemplate redisTemplate;
 
@@ -21,36 +21,43 @@ public class InventoryService {
 
     /**
      * Attempts to reserve product stock.
+     * 
      * @param productId Product ID
-     * @param amount Number of items (usually 1)
+     * @param amount    Number of items (usually 1)
      * @return true if successfully reserved, false if out of stock
      */
-    public boolean reserveStock(Long productId, int amount){
+    public boolean reserveStock(Long productId, int amount) {
         String redisKey = STOCK_KEY_PREFIX + productId;
 
-        try{
+        try {
             Long result = redisTemplate.execute(
-                decrementStockScript,
-                Collections.singletonList(redisKey),
-                String.valueOf(amount)
-            );
+                    decrementStockScript,
+                    Collections.singletonList(redisKey),
+                    String.valueOf(amount));
 
-            if(result != null && result == -1L){
+            if (result != null && result == -1L) {
                 log.warn("Overbooking detected, Product {} sailed.", productId);
                 return false;
             }
 
             log.info("Successfully booked {} pieces of goods {}. New balance: {}", amount, productId, result);
             return true;
-        } catch(Exception e){
+        } catch (Exception e) {
             log.error("Critical error when accessing Redis for a product {}", productId, e);
             return false;
         }
     }
 
-    public void initStock(Long productId, int initialStock){
+    public void initStock(Long productId, int initialStock) {
         String redisKey = STOCK_KEY_PREFIX + productId;
         redisTemplate.opsForValue().set(redisKey, String.valueOf(initialStock));
-        log.info("The remaining balance for the product {} has been uploaded to Redis: {} pcs.", productId, initialStock);
+        log.info("The remaining balance for the product {} has been uploaded to Redis: {} pcs.", productId,
+                initialStock);
+    }
+
+    public void rollbackStock(Long productId, int amount) {
+        String redisKey = "product:stock:" + productId;
+        redisTemplate.opsForValue().increment(redisKey, amount);
+        log.info("Компенсация: {} шт. товара {} возвращены в Redis.", amount, productId);
     }
 }
