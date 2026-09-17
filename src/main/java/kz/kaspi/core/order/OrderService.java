@@ -1,32 +1,44 @@
 package kz.kaspi.core.order;
 
-import org.springframework.stereotype.Service;
-
-import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kz.kaspi.core.inventory.InventoryService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import kz.kaspi.core.outbox.OutboxEvent;
 import kz.kaspi.core.outbox.OutboxEventRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-@Service 
-@RequiredArgsConstructor 
-@Slf4j 
+import java.time.Duration;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final InventoryService inventoryService;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
 
-    @Transactional 
-    public Order placeOrder(Long userId, Long productId){
-        log.info("Client {} try to buy product {}", userId, productId);
+    @Transactional
+    public Order placeOrder(Long userId, Long productId, String idempotencyKey) {
+
+        String redisKey = "idempotency:" + idempotencyKey;
+        Boolean isNewRequest = redisTemplate.opsForValue().setIfAbsent(redisKey, "PROCESSING", Duration.ofMinutes(10));
+
+        if (Boolean.FALSE.equals(isNewRequest)) {
+            log.warn("Дублирующийся запрос отклонен! Ключ: {}", idempotencyKey);
+            throw new RuntimeException("Запрос уже обрабатывается (Двойной клик)");
+        }
+
+        log.info("Клиент {} пытается купить товар {} (Ключ: {})", userId, productId, idempotencyKey);
 
         boolean reserved = inventoryService.reserveStock(productId, 1);
 
-        if(!reserved){
+        if (!reserved) {
             log.warn("Reject to client {}. Product {} is sold out", userId, productId);
             throw new RuntimeException("Product is sold out!");
         }
@@ -38,7 +50,7 @@ public class OrderService {
                 .build();
         order = orderRepository.save(order);
 
-        try{
+        try {
             String payload = objectMapper.writeValueAsString(order);
             OutboxEvent event = OutboxEvent.builder()
                     .aggregateType("Order")
@@ -47,12 +59,12 @@ public class OrderService {
                     .status("NEW")
                     .build();
             outboxEventRepository.save(event);
-        } catch(Exception e){
+        } catch (Exception e) {
             log.error("Error when serializing an order in JSON", e);
             throw new RuntimeException("System error when creating an order");
         }
-        log.info("The order {} has been successfully created and is awaiting payment. The event has been added to the Outbox.", order.getId());
+
+        log.info("Оформили заказ {} и положили в Outbox.", order.getId());
         return order;
     }
-
 }
