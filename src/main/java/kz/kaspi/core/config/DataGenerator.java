@@ -21,6 +21,7 @@ public class DataGenerator implements CommandLineRunner {
 
     private final ProductRepository productRepository;
     private final ProductSearchRepository productSearchRepository;
+    private final kz.kaspi.core.inventory.InventoryService inventoryService;
 
     @Override
     public void run(String... args) {
@@ -42,6 +43,8 @@ public class DataGenerator implements CommandLineRunner {
                     .stock(100)
                     .build();
             products.add(product);
+
+            inventoryService.initStock(Long.valueOf(i), 100);
 
             // for elastic
             ProductDocument document = ProductDocument.builder()
