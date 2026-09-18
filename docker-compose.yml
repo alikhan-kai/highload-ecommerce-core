@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. PostgreSQL - Главная БД (Source of Truth)
+  # 1. PostgreSQL
   postgres:
     image: postgres:15-alpine
     container_name: flash_postgres
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: flashsale
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,9 +52,9 @@ services:
       timeout: 5s
       retries: 3
 
-  # 4. Elasticsearch - Поисковый движок
+  # 4. Elasticsearch
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    image: elasticsearch:9.5.3
     container_name: flash_elastic
     environment:
       - discovery.type=single-node
@@ -76,7 +76,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: flash_kafka_ui
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092

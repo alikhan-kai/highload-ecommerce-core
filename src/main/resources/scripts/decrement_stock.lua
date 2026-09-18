@@ -1,5 +1,5 @@
 --product key in Redis(for example "product:stock:1")
-local stockeyKey = KEYS[1]
+local stockKey = KEYS[1]
 --how many pieces does the buyer want to write off 
 local amount = tonumber(ARGV[1])
 
