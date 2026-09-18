@@ -1,88 +1,96 @@
-<h1 align="center">Flash-Sale Engine ⚡</h1>
+<h1 align="center">Highload Flash-Sale Engine</h1>
 
 <p align="center">
-  A high-performance, resilient e-commerce core designed to handle extreme traffic spikes (e.g., Black Friday sales) with zero overbooking. Built with modern FinTech standards.
+  Высокопроизводительное ядро для e-commerce, спроектированное для обработки экстремальных всплесков трафика без риска овербукинга.
 </p>
 
-## 🚀 Tech Stack
+## Обзор проекта и его цели
 
-- **Java 21** & **Spring Boot 4.x** (REST APIs, AOP, Actuator)
-- **Redis & Lua** (Atomic stock operations, Search Caching)
-- **Apache Kafka** (Event-driven architecture, Saga Pattern)
-- **PostgreSQL** (Transactional Outbox Pattern)
-- **Elasticsearch** (Lightning-fast full-text search)
-- **Spring Security & JWT** (Stateless authentication)
-- **Resilience4j** (Rate Limiting, DDoS protection)
-- **Prometheus & Grafana** (Observability and JVM Monitoring)
-- **Grafana k6 & Docker** (Stress testing)
+Главная цель данного проекта - создание надежной backend-архитектуры, способной выдерживать массовые и внезапные скачки пользовательского трафика. Такие сценарии типичны для рекламных акций, "Черной пятницы" или ограниченных по времени флеш-распродаж.
 
----
+В традиционных e-commerce архитектурах внезапные одновременные запросы на покупку ограниченного инвентаря часто приводят к взаимным блокировкам базы данных (deadlocks), сильной деградации производительности или "овербукингу" (продаже большего количества товаров, чем есть на складе). Данный проект решает эти проблемы путем переноса критических транзакционных узлов из реляционной базы данных в in-memory структуры, гарантируя при этом согласованность данных (eventual consistency) между микросервисами.
 
-## 🏗️ Architecture & Patterns
+Проект спроектирован для демонстрации продвинутых практик backend-разработки уровня Senior, с фокусом на высокую доступность, отказоустойчивость, управление распределенными транзакциями и глубокий мониторинг.
 
-### 1. Zero Overbooking (Redis + Lua)
-Traditional RDBMS transactions fail under extreme concurrent load (deadlocks, performance degradation). This project uses an atomic **Lua script executed in Redis** to decrement stock. It processes 500+ concurrent purchase requests per second with absolute data consistency and 0% chance of negative inventory.
+## Технологический стек
 
-### 2. Distributed Transactions (Saga Pattern)
-When an order is placed, a `PaymentSagaListener` listens to Kafka events. If a payment fails (simulated dynamically), the system fires a compensating transaction to roll back the order status to `FAILED` and increment the stock back in Redis, ensuring eventual consistency across microservices.
-
-### 3. Reliable Event Delivery (Transactional Outbox)
-To solve the dual-write problem (saving an order to DB + publishing a message to Kafka), the system implements the **Outbox Pattern**. Events are saved to an `outbox_events` table in the same local transaction as the order. A background scheduler then safely publishes them to Kafka, guaranteeing *at-least-once* delivery.
-
-### 4. DDoS Protection (Rate Limiting)
-To protect the database and downstream services from botnets or aggressive traffic, **Resilience4j** is configured on critical endpoints. It strictly limits requests (e.g., 5 req/sec per node) and gracefully rejects excessive traffic with HTTP `429 Too Many Requests`.
-
-### 5. High-Speed Search Caching
-Elasticsearch provides fast full-text search, but network I/O is expensive. The `@Cacheable` abstraction is used to cache Elasticsearch query results directly in **Redis**, reducing response times from 30ms to <2ms for popular queries.
+- **Java 21** и **Spring Boot 4.x**: Основной фреймворк приложения (REST API, AOP, Actuator).
+- **Redis и Lua**: In-memory хранилище для атомарных операций со складом и кэширования поиска.
+- **Apache Kafka**: Брокер сообщений для событийно-ориентированной архитектуры и паттерна Saga.
+- **PostgreSQL**: Реляционная база данных, использующая паттерн Transactional Outbox.
+- **Elasticsearch**: Поисковый движок для молниеносных полнотекстовых запросов по каталогу товаров.
+- **Spring Security и JWT**: Система масштабируемой аутентификации без сохранения состояния (stateless).
+- **Resilience4j**: Реализация Rate Limiting и защиты от DDoS-атак.
+- **Prometheus и Grafana**: Time-series база данных и визуализация для мониторинга JVM.
+- **Grafana k6 и Docker**: Инструменты для нагрузочного тестирования и контейнеризации инфраструктуры.
 
 ---
 
-## 📊 Observability & Load Testing
+## Архитектура и паттерны проектирования
 
-The system is fully instrumented with Micrometer. **Prometheus** scrapes JVM metrics, connection pools, and HTTP throughput, visualizing them in **Grafana**.
+### 1. Защита от овербукинга (Redis + Lua)
+Традиционные транзакции РУБД (RDBMS) не справляются с экстремальной конкурентной нагрузкой из-за блокировок на уровне строк. В этом проекте проверка запасов полностью вынесена за пределы базы данных. Вместо этого используется атомарный Lua-скрипт, выполняемый непосредственно внутри Redis, для уменьшения остатков. Это позволяет обрабатывать тысячи конкурентных запросов на покупку в секунду с абсолютной согласованностью данных и нулевой вероятностью отрицательного остатка.
 
-### Stress Testing with K6
-A rigorous load test was conducted using `k6` with **500 concurrent Virtual Users (VUs)** attacking the checkout API simultaneously.
+### 2. Распределенные транзакции (Паттерн Saga)
+В экосистеме микросервисов локальных ACID-транзакций недостаточно. При оформлении заказа `PaymentSagaListener` асинхронно прослушивает события Kafka. Если платеж не проходит (в движке реализована динамическая симуляция отказов), система запускает компенсирующую транзакцию для отката статуса заказа до `FAILED` и возвращает товар на склад в Redis, обеспечивая согласованность в конечном счете (eventual consistency).
 
-**Results:**
-- 🛡️ **DDoS Defense:** ~4800 requests were successfully intercepted and rate-limited (`HTTP 429`), protecting the CPU from exhaustion.
-- 🎯 **Accuracy:** Exactly the remaining 20 items in stock were purchased (`HTTP 200`). The other valid requests received `HTTP 400 (Out of stock)`.
-- ⚡ **Performance:** The HikariCP connection pool remained stable, and the Garbage Collector efficiently cleared the young generation (Eden space) without "Stop-The-World" pauses.
+### 3. Надежная доставка событий (Transactional Outbox)
+Для решения проблемы "двойной записи" (безопасное сохранение заказа в БД при одновременной публикации сообщения в Kafka без потери данных во время сбоев), в системе реализован паттерн Outbox. События сохраняются в таблицу `outbox_events` в рамках той же локальной ACID-транзакции, что и создание заказа. Затем фоновый планировщик безопасно публикует их в Kafka, гарантируя доставку *at-least-once*.
 
-### Grafana Dashboards under Load
+### 4. Защита от DDoS (Rate Limiting)
+Для защиты базы данных и нижележащих сервисов от ботнетов или агрессивного трафика на критических эндпоинтах настроен Resilience4j. Он строго ограничивает количество запросов (например, 5 запросов в секунду на узел) и корректно отклоняет избыточный трафик со статусом HTTP `429 Too Many Requests`, гарантируя, что приложение останется отзывчивым для легитимных пользователей.
 
-**CPU Usage Spike during K6 500 VUs Load Test**
-
-<img src="docs/images/grafana_cpu.png" alt="Grafana CPU" width="800"/>
-
-**JVM Heap (G1 Eden Space) GC Cycles**
-
-<img src="docs/images/grafana_memory.png" alt="Grafana Memory" width="800"/>
+### 5. Высокоскоростное кэширование поиска
+Elasticsearch обеспечивает быстрый полнотекстовый поиск, но сетевой ввод-вывод остается узким местом при высокой нагрузке. Абстракция `@Cacheable` используется для кэширования результатов запросов Elasticsearch напрямую в Redis, сокращая время отклика с 30 мс до менее чем 2 мс для популярных запросов.
 
 ---
 
-## 🛠️ How to Run
+## Мониторинг и нагрузочное тестирование
 
-1. **Start Infrastructure (Docker Compose)**
+Система полностью инструментирована с помощью Micrometer. Prometheus активно собирает метрики JVM, состояния пула соединений HikariCP и HTTP-пропускной способности, визуализируя их в Grafana.
+
+### Методология нагрузочного тестирования (K6)
+Было проведено жесткое нагрузочное тестирование с использованием `k6`, имитирующее 500 одновременных виртуальных пользователей (VUs), атакующих API оформления заказа одновременно.
+
+**Анализ результатов нагрузочного тестирования:**
+- **Защита от DDoS:** Подавляющее большинство избыточных запросов было успешно перехвачено и ограничено, вернув `HTTP 429`. Это предотвратило исчерпание ресурсов CPU.
+- **Абсолютная точность:** Были куплены ровно те товары, которые оставались в наличии, вернув `HTTP 200`. Как только запасы достигли нуля, последующие валидные запросы корректно получали `HTTP 400 (Out of stock)`.
+- **Производительность системы:** Пул соединений HikariCP оставался стабильным, а Garbage Collector эффективно очищал молодое поколение (Eden space) без заметных пауз "Stop-The-World".
+
+### Вывод терминала из стресс-теста K6
+Ниже приведен вывод терминала, демонстрирующий успешное ограничение скорости и точную обработку 500 одновременных пользователей:
+
+<img src="docs/images/k6_terminal.png" alt="K6 Load Test Terminal Output" width="800"/>
+
+### Дашборды Grafana под нагрузкой
+
+**Всплеск использования CPU во время теста K6 (500 VUs)**
+<img src="docs/images/grafana_cpu.png" alt="Grafana CPU Utilization" width="800"/>
+
+**Циклы GC JVM Heap (G1 Eden Space)**
+<img src="docs/images/grafana_memory.png" alt="Grafana JVM Memory" width="800"/>
+
+---
+
+## Запуск проекта
+
+1. **Запуск инфраструктуры (Docker Compose)**
    ```bash
    docker-compose up -d
    ```
-   *Starts PostgreSQL, Redis, Kafka, Elasticsearch, Prometheus, and Grafana.*
+   *Запускает PostgreSQL, Redis, Kafka, Elasticsearch, Prometheus и Grafana.*
 
-2. **Run the Application**
+2. **Запуск приложения**
    ```bash
    ./gradlew bootRun
    ```
 
-3. **Access Services**
+3. **Доступ к сервисам**
    - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
    - Grafana: `http://localhost:3000` (admin/admin)
    - Kafka UI: `http://localhost:8090`
 
-4. **Run Load Test (K6)**
+4. **Запуск нагрузочного теста (K6)**
    ```bash
    Get-Content load-test.js | docker run --rm -i grafana/k6 run -
    ```
-
----
-*Built as a showcase of Senior-level Backend Engineering practices.*
