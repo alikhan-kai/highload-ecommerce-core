@@ -15,7 +15,7 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestParam Long userId) {
+    public ResponseEntity<String> login(@RequestParam("userId") Long userId) {
         String token = jwtService.generateToken(userId);
         return ResponseEntity.ok(token);
     }
