@@ -48,3 +48,11 @@ management:
   metrics:
     tags:
       application: "flash-sale-engine"
+
+resilience4j:
+  ratelimiter:
+    instances:
+      orderService:
+        limitForPeriod: 5       
+        limitRefreshPeriod: 1s  
+        timeoutDuration: 0s     

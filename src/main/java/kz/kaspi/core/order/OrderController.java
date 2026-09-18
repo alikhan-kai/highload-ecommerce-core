@@ -3,6 +3,7 @@ package kz.kaspi.core.order;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
@@ -20,6 +21,7 @@ public class OrderController {
      * Обязательный заголовок: Idempotency-Key
      */
     @PostMapping
+    @RateLimiter(name = "orderService")
     public ResponseEntity<?> placeOrder(
             @RequestParam("productId") Long productId,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {

@@ -24,8 +24,9 @@ export default function (data) {
         }
     });
     check(res, {
-        'is status 200 (successful purchase)': (r) => r.status === 200,
-        'is status 400 (The product is out)': (r) => r.status === 400,
+        'is status 200 (успешная покупка)': (r) => r.status === 200,
+        'is status 400 (товар распродан)': (r) => r.status === 400,
+        'is status 429 (заблокировано DDoS защитой)': (r) => r.status === 429,
     });
 
     sleep(0.1);

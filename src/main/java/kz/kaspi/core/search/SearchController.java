@@ -1,6 +1,8 @@
 package kz.kaspi.core.search;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,8 +19,8 @@ public class SearchController {
     private final ProductSearchRepository searchRepository;
 
     @GetMapping
-    public ResponseEntity<List<ProductDocument>> searchProducts(@RequestParam("q") String query) {
-        List<ProductDocument> results = searchRepository.findByNameContainingIgnoreCase(query);
-        return ResponseEntity.ok(results);
+    @Cacheable(value = "products_search", key = "#query")
+    public ResponseEntity<List<ProductDocument>> searchProducts(@RequestParam String query) {
+        return ResponseEntity.ok(searchRepository.findByNameContainingIgnoreCase(query));
     }
 }
