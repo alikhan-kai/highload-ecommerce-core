@@ -7,10 +7,14 @@ import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+import jakarta.validation.constraints.Positive;
+import org.springframework.validation.annotation.Validated;
+
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "Bearer Authentication")
+@Validated
 public class OrderController {
 
     private final OrderService orderService;
@@ -23,7 +27,7 @@ public class OrderController {
     @PostMapping
     @RateLimiter(name = "orderService")
     public ResponseEntity<?> placeOrder(
-            @RequestParam("productId") Long productId,
+            @RequestParam("productId") @Positive(message = "ID товара должен быть положительным числом") Long productId,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
         try {
