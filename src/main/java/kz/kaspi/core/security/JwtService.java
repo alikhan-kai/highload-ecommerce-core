@@ -11,13 +11,14 @@ import java.util.Date;
 public class JwtService {
 
     private static final String SECRET_KEY_STRING = "MySuperSecretKeyForFlashSaleEngineWhichIsVeryLongAndSecure123456";
+    private static final long JWT_EXPIRATION_MS = 86400000L; // 24 hours
     private final SecretKey secretKey = Keys.hmacShaKeyFor(SECRET_KEY_STRING.getBytes());
 
     public String generateToken(Long userId) {
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .expiration(new Date(System.currentTimeMillis() + JWT_EXPIRATION_MS))
                 .signWith(secretKey)
                 .compact();
     }
